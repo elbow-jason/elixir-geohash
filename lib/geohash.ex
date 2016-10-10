@@ -90,7 +90,8 @@ defmodule Geohash do
   {42.605, -5.603}
   """
   def decode_to_bits(geohash) do
-    to_char_list(geohash)
+    geohash
+    |> to_char_list
     |> Enum.map(&from_geobase32/1)
     |> Enum.reduce(<<>>, fn(c, acc) -> << acc::bitstring, c::bitstring >> end)
   end
@@ -98,14 +99,14 @@ defmodule Geohash do
   def bits_to_coordinates_pair(bits) do
     bitslist = for << bit::1 <- bits >>, do: bit
     lat = bitslist
-    |> filter_odd
-    |> Enum.reduce(fn (bit, acc) -> <<acc::bitstring, bit::bitstring>> end)
-    |> bits_to_coordinate({-90.0, 90.0})
+      |> filter_odd
+      |> Enum.reduce(fn (bit, acc) -> <<acc::bitstring, bit::bitstring>> end)
+      |> bits_to_coordinate({-90.0, 90.0})
 
     lon = bitslist
-    |> filter_even
-    |> Enum.reduce(fn (bit, acc) -> <<acc::bitstring, bit::bitstring>> end)
-    |> bits_to_coordinate({-180.0, 180.0})
+      |> filter_even
+      |> Enum.reduce(fn (bit, acc) -> <<acc::bitstring, bit::bitstring>> end)
+      |> bits_to_coordinate({-180.0, 180.0})
 
     {lat, lon}
   end
@@ -125,20 +126,27 @@ defmodule Geohash do
     |> Enum.map(fn {bit, _} -> <<bit::1>> end)
   end
 
-  defp bits_to_coordinate(<<>>, {min, max}) do
+  defp middle({min, max}) do
+    middle(min, max)
+  end
+  defp middle(min, max) do
     (min + max) / 2
-    |> round_coordinate({min, max})
+  end
+
+  defp bits_to_coordinate(<<>>, {_min, _max} = min_max) do
+    min_max
+    |> middle
+    |> round_coordinate(min_max)
   end
 
   defp bits_to_coordinate(bits, {min, max}) do
     << bit::1, rest::bitstring >> = bits
     mid = (min + max) / 2
-    cond do
-      bit == 1 ->
-        bits_to_coordinate(rest, {mid, max})
-      bit == 0 ->
-        bits_to_coordinate(rest, {min, mid})
+    {start, finish} = case bit do
+      1 -> {mid, max}
+      0 -> {min, mid}
     end
+    bits_to_coordinate(rest, {start, finish})
   end
 
   @docp ~S"""
